@@ -47,7 +47,7 @@ docker build --build-arg KONG_IMAGE=kong/kong-gateway:3.14 -t kong-custom-auth:l
 > ベースイメージ（`KONG_IMAGE`）はローカルに存在するか pull 可能なタグを指定してください。
 > ビルド後 `docker compose up -d` で起動します（初回や変更時は `--build` 推奨）。
 
-## フェーズ1: Konnect との接続稼働確認
+## Konnectとの接続
 
 ### 1. Konnect でデータプレーンノードを登録
 
@@ -104,6 +104,29 @@ curl -s http://localhost:8100/status | jq .
 Konnect 管理画面の **Data Plane Nodes** に当該ノードが **Connected** として
 表示されれば接続成功です。
 
+### 6. プラグインの登録
+
+プラグインの定義、ならびに必要なServiceやRoute定義は```deck```フォルダ配下に準備しています。Konnectに対して適用する事によりゲートウェイに反映できます。
+
+サンプルコマンド
+```bash
+# Control Plane名：custom-auth
+# Konnect PATは環境変数$KONNECT_TOKENにて定義
+deck gateway sync deck/1-without-auth-plugin.yaml  --konnect-control-plane-name custom-auth --konnect-token $KONNECT_TOKEN
+```
+
+[1-without-auth-plugin.yaml](/deck/1-without-auth-plugin.yaml) - カスタム認証以外のエンティティの登録
+[2-with-auth-plugin.yaml](/deck/2-with-auth-plugin.yaml) - カスタム認証を含んだすべての登録
+
+### 7. テスト
+以下のエンドポイントがローカル環境のKong Gatewayに設定されている。
+
+- http://localhost:8000/echo - 接続先サービス（エコーサービス）
+- http://localhost:8000/token - トークン管理エンドポイント
+
+トークン管理エンドポイントにまずアクセスしトークンを取得。その後トークンをBearerトークンとしてヘッダーに設定した上でエコーサービスに接続。
+
+
 ### 停止 / クリーンアップ
 
 ```bash
@@ -120,7 +143,7 @@ docker compose down -v         # Redis データも削除
 
 ---
 
-## フェーズ2: custom-auth-token プラグイン
+## custom-auth-token プラグイン
 
 ダミー Route にアタッチし、トークンを発行/管理する小さな CRUD API。
 プラグインがリクエストを終端し**直接レスポンス**します（upstream へはプロキシしない）。
@@ -210,7 +233,7 @@ Konnect を介さずロジックだけ確認したい場合は、ビルド済み
 
 ---
 
-## フェーズ3: custom-auth-authenticator プラグイン
+## custom-auth-authenticator プラグイン
 
 保護対象の Route にアタッチし、リクエストの **Bearer トークン**を Redis で照合する
 認証プラグイン。`custom-auth-token` が作成したレコードを参照します。
