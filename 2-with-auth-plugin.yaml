@@ -1,0 +1,30 @@
+_format_version: "3.0"
+_konnect:
+  control_plane_name: custom-auth
+services:
+- host: httpbin.konghq.com
+  name: echo-service
+  path: /anything
+  port: 443
+  protocol: https
+  routes:
+  - name: echo-route
+    paths:
+    - /echo
+    plugins:
+    - config:
+        redis_password: redis
+      enabled: true
+      name: custom-auth-authenticator
+    protocols:
+    - http
+  - name: echo-token
+    paths:
+    - /token
+    plugins:
+    - config:
+        redis_password: redis
+      enabled: true
+      name: custom-auth-token
+    protocols:
+    - http

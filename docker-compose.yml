@@ -1,0 +1,90 @@
+name: kong-custom-auth
+
+services:
+  # ---------------------------------------------------------------------------
+  # Kong Gateway running as a Konnect DATA PLANE node.
+  # The Control Plane lives in Konnect; this node connects out over mTLS using
+  # the certificate/key issued by Konnect (mounted from ./certs).
+  # ---------------------------------------------------------------------------
+  kong:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        KONG_IMAGE: ${KONG_IMAGE:-kong/kong-gateway:3.14}
+    image: kong-custom-auth:local
+    container_name: kong-dp
+    restart: unless-stopped
+    environment:
+      # --- Konnect data plane role ---
+      KONG_ROLE: data_plane
+      KONG_DATABASE: "off"
+      KONG_VITALS: "off"
+
+      # --- Konnect connection (mTLS, PKI mode) ---
+      KONG_KONNECT_MODE: "on"
+      KONG_CLUSTER_MTLS: pki
+      KONG_CLUSTER_CONTROL_PLANE: ${KONNECT_CP_ENDPOINT}:443
+      KONG_CLUSTER_SERVER_NAME: ${KONNECT_CP_ENDPOINT}
+      KONG_CLUSTER_TELEMETRY_ENDPOINT: ${KONNECT_TP_ENDPOINT}:443
+      KONG_CLUSTER_TELEMETRY_SERVER_NAME: ${KONNECT_TP_ENDPOINT}
+      KONG_CLUSTER_CERT: /etc/kong/certs/tls.crt
+      KONG_CLUSTER_CERT_KEY: /etc/kong/certs/tls.key
+      KONG_LUA_SSL_TRUSTED_CERTIFICATE: system
+      KONG_TLS_CERTIFICATE_VERIFY: "off"
+
+      # --- Routing ---
+      KONG_ROUTER_FLAVOR: expressions
+
+      # --- Proxy / listen ---
+      KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
+      KONG_STATUS_LISTEN: "0.0.0.0:8100"
+
+      # --- Logging ---
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+
+      # --- Custom plugins (baked into the image via Dockerfile) ---
+      KONG_PLUGINS: "bundled,custom-auth-token,custom-auth-authenticator"
+    ports:
+      - "8000:8000"   # proxy (HTTP)
+      - "8443:8443"   # proxy (HTTPS)
+      - "8100:8100"   # status / health
+    volumes:
+      - ./certs:/etc/kong/certs:ro
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    depends_on:
+      - redis
+
+  # ---------------------------------------------------------------------------
+  # Redis — backend store for the custom auth tokens.
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: kong-redis
+    restart: unless-stopped
+    command: >
+      sh -c '
+      if [ -n "$$REDIS_PASSWORD" ]; then
+        redis-server --requirepass "$$REDIS_PASSWORD";
+      else
+        redis-server;
+      fi'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis-data:

@@ -1,0 +1,14 @@
+# Environment / secrets
+.env
+
+# Konnect data plane certificates (issued per data plane node)
+certs/*.crt
+certs/*.key
+certs/*.pem
+!certs/.gitkeep
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/

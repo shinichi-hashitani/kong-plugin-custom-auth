@@ -1,0 +1,7 @@
+.git
+.env
+certs/*
+!certs/.gitkeep
+README.md
+docker-compose.yml
+*.md
