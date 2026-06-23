@@ -11,11 +11,6 @@ services:
   - name: echo-route
     paths:
     - /echo
-    plugins:
-    - config:
-        redis_password: redis
-      enabled: true
-      name: custom-auth-authenticator
     protocols:
     - http
   - name: echo-token

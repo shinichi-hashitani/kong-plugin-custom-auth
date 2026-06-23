@@ -60,12 +60,6 @@ Konnect 管理画面で以下を行います。
    - Telemetry エンドポイント（`*.tp.konghq.com`）
    - 証明書（certificate）と秘密鍵（private key）
 
-   生成される `docker run` コマンドの環境変数は本リポジトリの
-   `docker-compose.yml` に反映済みです（`KONG_KONNECT_MODE=on`,
-   `KONG_TLS_CERTIFICATE_VERIFY=off`, `KONG_ROUTER_FLAVOR=expressions` を含む）。
-   `KONG_CLUSTER_CERT` / `KONG_CLUSTER_CERT_KEY` は証明書ファイルを `certs/` に
-   マウントする方式に置き換えています。
-
 ### 2. 証明書を配置
 
 Konnect が発行した証明書・鍵を `certs/` に保存します（gitignore 済み）。
@@ -214,22 +208,13 @@ curl -s -X DELETE http://localhost:8000/tokens/<token>     # 削除
 ### Konnect での有効化手順
 
 1. **カスタムプラグインを Konnect CP に登録**
-   Gateway Manager → 対象 CP → **Plugins** → **Custom Plugins** → `handler.lua` と
+   Gateway Manager → 対象 CP → **Plugins** → **Custom Plugins** → 
    `schema.lua` をアップロード（名前 `custom-auth-token`）。
 2. **ダミー Service / Route を作成**（例: Route パス `/tokens`、`protocols` に `http,https`）。
 3. 作成した Route（または Service）に **custom-auth-token プラグインをアタッチ**し、
    `redis_host` などを設定。
 4. データプレーンには本リポジトリの `docker-compose.yml` で既にコードがマウントされ、
    `KONG_PLUGINS=bundled,custom-auth-token` で読み込み有効化済み。
-
-### ローカル単体テスト（Konnect 不要・任意）
-
-Konnect を介さずロジックだけ確認したい場合は、ビルド済みの `kong-custom-auth:local`
-イメージを **DB-less モード**で起動し、宣言設定（`_format_version: "3.0"` の `kong.yml`
-に Service / Route / plugin を定義）を読ませてプロキシ経由で叩けます。
-プラグインはイメージに同梱済みなので `KONG_DATABASE=off` と `KONG_DECLARATIVE_CONFIG`
-の指定だけで動きます（`KONG_PLUGINS` はイメージに焼き込み済み）。
-本プラグインはこの方法で CRUD 全パスおよび認証/401/ヘッダ付与/スプーフィング防止を検証済みです。
 
 ---
 
